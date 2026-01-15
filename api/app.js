@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const userRoutes = require('./routes/userRoutes');
+const productRoutes = require('./routes/productRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -44,7 +47,6 @@ const authLimiter = rateLimit({
   },
 });
 
-// Apply general rate limiting to all requests
 app.use(generalLimiter); 
 
 app.use((req, res, next) => {
@@ -56,8 +58,10 @@ app.get("/", (req, res) => {
     res.send("Welcome to the API!");
 });
 
-// Apply stricter rate limiting to auth routes
 app.use('/api/users', authLimiter, userRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

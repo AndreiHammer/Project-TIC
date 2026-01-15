@@ -49,10 +49,22 @@ const updateLastLogin = async (userId) => {
     return currentTime;
 };
 
+const findUserById = async (userId) => {
+    const userDoc = await usersCollection.doc(userId).get();
+    if (!userDoc.exists) {
+        return null;
+    }
+    return {
+        id: userDoc.id,
+        ...userDoc.data()
+    };
+};
+
 module.exports = {
     findUserByEmail,
     findUserByUsername,
     verifyPassword,
     addNewUser,
-    updateLastLogin
+    updateLastLogin,
+    findUserById
 };

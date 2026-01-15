@@ -45,9 +45,30 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { findUserById } = require('../models/User');
+    const user = await findUserById(req.user.id);
+    
+    if (!user || !user.admin) {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+
+    req.userData = user;
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to verify admin status' });
+  }
+};
+
 module.exports = {
     hashPassword,
     comparePassword,
     generateToken,
-    verifyToken
+    verifyToken,
+    requireAdmin
 };
