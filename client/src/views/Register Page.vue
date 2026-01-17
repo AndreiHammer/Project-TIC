@@ -1,97 +1,62 @@
 <template>
-  <v-container fluid class="fill-height">
+  <v-container fluid class="fill-height bg-gradient">
     <v-row align="center" justify="center" class="fill-height">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="elevation-12">
-          <v-toolbar color="primary" dark flat>
-            <v-toolbar-title>Register</v-toolbar-title>
-            <v-spacer></v-spacer>
-          </v-toolbar>
-          <v-card-text>
-            <v-form ref="form" v-model="valid" lazy-validation>
-              <v-text-field
-                v-model="username"
-                label="Username"
-                name="username"
-                prepend-inner-icon="mdi-account"
-                :rules="usernameRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+      <v-col cols="12" sm="8" md="6" lg="5" xl="4">
+        <v-card class="elevation-12 rounded-lg">
+          <v-card-title class="text-h4 font-weight-bold text-center pa-6 bg-primary">
+            <span class="text-white">Create Account</span>
+          </v-card-title>
 
-              <v-text-field
-                v-model="email"
-                label="Email"
-                name="email"
-                prepend-inner-icon="mdi-email"
-                type="email"
-                :rules="emailRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+          <v-card-text class="pa-6">
+            <p class="text-center text-medium-emphasis mb-6">
+              Join us today and start shopping
+            </p>
 
-              <v-text-field
-                v-model="password"
-                label="Password"
-                name="password"
-                prepend-inner-icon="mdi-lock"
-                :type="showPassword ? 'text' : 'password'"
-                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append-inner="showPassword = !showPassword"
-                :rules="passwordRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+            <v-form ref="form" v-model="valid" lazy-validation @submit.prevent="handleRegister">
+              <v-text-field v-model="username" label="Username" name="username" prepend-inner-icon="mdi-account"
+                :rules="usernameRules" required variant="outlined" density="comfortable" class="mb-3"></v-text-field>
 
-              <v-text-field
-                v-model="confirmPassword"
-                label="Confirm Password"
-                name="confirmPassword"
-                prepend-inner-icon="mdi-lock-check"
-                :type="showConfirmPassword ? 'text' : 'password'"
+              <v-text-field v-model="email" label="Email" name="email" prepend-inner-icon="mdi-email" type="email"
+                :rules="emailRules" required variant="outlined" density="comfortable" class="mb-3"></v-text-field>
+
+              <v-text-field v-model="password" label="Password" name="password" prepend-inner-icon="mdi-lock"
+                :type="showPassword ? 'text' : 'password'" :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                @click:append-inner="showPassword = !showPassword" :rules="passwordRules" required variant="outlined"
+                density="comfortable" class="mb-3" @input="updatePasswordStrength"></v-text-field>
+
+              <!-- Password Strength Indicator -->
+              <v-progress-linear v-if="password" :model-value="passwordStrength.value" :color="passwordStrength.color"
+                height="4" class="mb-2"></v-progress-linear>
+              <p v-if="password" :class="`text-caption text-${passwordStrength.color} mb-3`">
+                Password strength: {{ passwordStrength.text }}
+              </p>
+
+              <v-text-field v-model="confirmPassword" label="Confirm Password" name="confirmPassword"
+                prepend-inner-icon="mdi-lock-check" :type="showConfirmPassword ? 'text' : 'password'"
                 :append-inner-icon="showConfirmPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                :rules="confirmPasswordRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+                @click:append-inner="showConfirmPassword = !showConfirmPassword" :rules="confirmPasswordRules" required
+                variant="outlined" density="comfortable" class="mb-2"></v-text-field>
 
-              <v-alert
-                v-if="error"
-                type="error"
-                density="compact"
-                class="mb-4"
-                closable
-                @click:close="error = null"
-              >
+              <v-alert v-if="error" type="error" density="compact" class="mb-4" closable @click:close="error = null">
                 {{ error }}
               </v-alert>
+
+              <v-btn color="primary" :loading="loading" :disabled="!valid || loading" type="submit" block size="large"
+                class="mb-4">
+                Create Account
+              </v-btn>
             </v-form>
           </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn
-              color="primary"
-              :loading="loading"
-              :disabled="!valid || loading"
-              @click="handleRegister"
-              block
-              size="large"
-            >
-              Register
-            </v-btn>
-          </v-card-actions>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <span class="text-body-2">
+
+          <v-divider></v-divider>
+
+          <v-card-actions class="pa-6 justify-center">
+            <span class="text-body-2 text-medium-emphasis">
               Already have an account?
-              <router-link to="/login" class="text-primary">Login</router-link>
+              <router-link to="/login" class="text-primary text-decoration-none font-weight-medium">
+                Sign In
+              </router-link>
             </span>
-            <v-spacer></v-spacer>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -100,7 +65,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
@@ -120,6 +85,12 @@ export default {
     const showConfirmPassword = ref(false)
     const loading = ref(false)
     const error = ref(null)
+
+    const passwordStrength = reactive({
+      value: 0,
+      text: '',
+      color: 'error',
+    })
 
     const usernameRules = [
       (v) => !!v || 'Username is required',
@@ -146,9 +117,35 @@ export default {
       (v) => v === password.value || 'Passwords do not match',
     ]
 
+    const updatePasswordStrength = () => {
+      const pwd = password.value
+      let strength = 0
+
+      if (pwd.length >= 8) strength += 20
+      if (pwd.length >= 12) strength += 10
+      if (/[a-z]/.test(pwd)) strength += 15
+      if (/[A-Z]/.test(pwd)) strength += 15
+      if (/[0-9]/.test(pwd)) strength += 15
+      if (/[@$!%*?&#]/.test(pwd)) strength += 15
+      if (pwd.length >= 16) strength += 10
+
+      passwordStrength.value = strength
+
+      if (strength < 40) {
+        passwordStrength.text = 'Weak'
+        passwordStrength.color = 'error'
+      } else if (strength < 70) {
+        passwordStrength.text = 'Medium'
+        passwordStrength.color = 'warning'
+      } else {
+        passwordStrength.text = 'Strong'
+        passwordStrength.color = 'success'
+      }
+    }
+
     const handleRegister = async () => {
       error.value = null
-      
+
       const { valid: formValid } = await form.value.validate()
       if (!formValid) return
 
@@ -156,7 +153,7 @@ export default {
       try {
         const result = await register(email.value, password.value, username.value, confirmPassword.value)
         if (result.success) {
-          router.push({ name: 'Home' })
+          router.push({ name: 'UserDashboard' })
         } else {
           if (Array.isArray(result.error)) {
             error.value = result.error.map(e => e.msg || e.message || e).join(', ')
@@ -184,10 +181,12 @@ export default {
       showConfirmPassword,
       loading,
       error,
+      passwordStrength,
       usernameRules,
       emailRules,
       passwordRules,
       confirmPasswordRules,
+      updatePasswordStrength,
       handleRegister,
     }
   },
@@ -197,5 +196,17 @@ export default {
 <style scoped>
 .fill-height {
   min-height: 100vh;
+}
+
+.bg-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.rounded-lg {
+  border-radius: 16px !important;
+}
+
+.bg-primary {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
 }
 </style>

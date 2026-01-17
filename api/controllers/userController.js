@@ -129,7 +129,8 @@ const register = async (req, res) => {
             user: {
                 id: docRef.id, 
                 email: email,
-                username: username  
+                username: username,
+                admin: false  
             }
         });
     } catch(error) {

@@ -5,8 +5,16 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('../views/Home Page.vue'),
-    meta: { requiresAuth: true },
+    redirect: () => {
+      const isAuthenticated = store.getters.isAuthenticated
+      const isAdmin = store.getters.isAdmin
+
+      if (!isAuthenticated) {
+        return { name: 'Login' }
+      }
+
+      return isAdmin ? { name: 'AdminDashboard' } : { name: 'UserDashboard' }
+    },
   },
   {
     path: '/login',
@@ -19,6 +27,54 @@ const routes = [
     name: 'Register',
     component: () => import('../views/Register Page.vue'),
     meta: { requiresGuest: true },
+  },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: () => import('../views/Admin Dashboard.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/dashboard',
+    name: 'UserDashboard',
+    component: () => import('../views/User Dashboard.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/profile',
+    name: 'UserProfile',
+    component: () => import('../views/User Profile.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/products',
+    name: 'Products',
+    component: () => import('../views/User Dashboard.vue'), // Temporary
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/cart',
+    name: 'Cart',
+    component: () => import('../views/User Dashboard.vue'), // Temporary
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('../views/User Dashboard.vue'), // Temporary
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/products',
+    name: 'AdminProducts',
+    component: () => import('../views/Admin Dashboard.vue'), // Temporary
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/admin/orders',
+    name: 'AdminOrders',
+    component: () => import('../views/Admin Dashboard.vue'), // Temporary
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -34,14 +90,24 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const isAuthenticated = store.getters.isAuthenticated
+  const isAdmin = store.getters.isAdmin
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ name: 'Login' })
-  } else if (to.meta.requiresGuest && isAuthenticated) {
-    next({ name: 'Home' })
-  } else {
-    next()
+    next({ name: 'Login', query: { redirect: to.fullPath } })
+    return
   }
+
+  if (to.meta.requiresAdmin && !isAdmin) {
+    next({ name: 'UserDashboard' })
+    return
+  }
+
+  if (to.meta.requiresGuest && isAuthenticated) {
+    next({ name: isAdmin ? 'AdminDashboard' : 'UserDashboard' })
+    return
+  }
+
+  next()
 })
 
 export default router

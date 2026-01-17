@@ -23,4 +23,3 @@ export default {
   min-height: 70vh;
 }
 </style>
-

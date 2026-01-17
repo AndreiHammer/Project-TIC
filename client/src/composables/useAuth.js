@@ -10,10 +10,11 @@ export function useAuth() {
   const isAuthenticated = computed(() => store.getters.isAuthenticated)
   const currentUser = computed(() => store.getters.currentUser)
   const token = computed(() => store.getters.token)
+  const isAdmin = computed(() => store.getters.isAdmin)
 
   const login = async (email, password) => {
     const result = await authService.login(email, password)
-    
+
     if (result.success) {
       store.dispatch('login', {
         user: result.data.user,
@@ -27,10 +28,15 @@ export function useAuth() {
 
   const register = async (email, password, username, confirmPassword) => {
     const result = await authService.register(email, password, username, confirmPassword)
-    
+
     if (result.success) {
+      const user = {
+        ...result.data.user,
+        admin: result.data.user.admin
+      }
+
       store.dispatch('register', {
-        user: result.data.user,
+        user: user,
         token: result.data.token,
       })
       return { success: true }
@@ -48,6 +54,7 @@ export function useAuth() {
     isAuthenticated,
     currentUser,
     token,
+    isAdmin,
     login,
     register,
     logout,

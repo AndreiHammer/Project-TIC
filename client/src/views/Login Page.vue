@@ -1,72 +1,46 @@
 <template>
-  <v-container fluid class="fill-height">
+  <v-container fluid class="fill-height bg-gradient">
     <v-row align="center" justify="center" class="fill-height">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="elevation-12">
-          <v-toolbar color="primary" dark flat>
-            <v-toolbar-title>Login</v-toolbar-title>
-            <v-spacer></v-spacer>
-          </v-toolbar>
-          <v-card-text>
-            <v-form ref="form" v-model="valid" lazy-validation>
-              <v-text-field
-                v-model="email"
-                label="Email"
-                name="email"
-                prepend-inner-icon="mdi-email"
-                type="email"
-                :rules="emailRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+      <v-col cols="12" sm="8" md="5" lg="4" xl="3">
+        <v-card class="elevation-12 rounded-lg">
+          <v-card-title class="text-h4 font-weight-bold text-center pa-6 bg-primary">
+            <span class="text-white">Welcome Back</span>
+          </v-card-title>
 
-              <v-text-field
-                v-model="password"
-                label="Password"
-                name="password"
-                prepend-inner-icon="mdi-lock"
-                :type="showPassword ? 'text' : 'password'"
-                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append-inner="showPassword = !showPassword"
-                :rules="passwordRules"
-                required
-                variant="outlined"
-                class="mb-2"
-              ></v-text-field>
+          <v-card-text class="pa-6">
+            <p class="text-center text-medium-emphasis mb-6">
+              Sign in to your account to continue
+            </p>
 
-              <v-alert
-                v-if="error"
-                type="error"
-                density="compact"
-                class="mb-4"
-                closable
-                @click:close="error = null"
-              >
+            <v-form ref="form" v-model="valid" lazy-validation @submit.prevent="handleLogin">
+              <v-text-field v-model="email" label="Email" name="email" prepend-inner-icon="mdi-email" type="email"
+                :rules="emailRules" required variant="outlined" density="comfortable" class="mb-3"></v-text-field>
+
+              <v-text-field v-model="password" label="Password" name="password" prepend-inner-icon="mdi-lock"
+                :type="showPassword ? 'text' : 'password'" :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                @click:append-inner="showPassword = !showPassword" :rules="passwordRules" required variant="outlined"
+                density="comfortable" class="mb-2"></v-text-field>
+
+              <v-alert v-if="error" type="error" density="compact" class="mb-4" closable @click:close="error = null">
                 {{ error }}
               </v-alert>
+
+              <v-btn color="primary" :loading="loading" :disabled="!valid || loading" type="submit" block size="large"
+                class="mb-4">
+                Sign In
+              </v-btn>
             </v-form>
           </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn
-              color="primary"
-              :loading="loading"
-              :disabled="!valid || loading"
-              @click="handleLogin"
-              block
-              size="large"
-            >
-              Login
-            </v-btn>
-          </v-card-actions>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <span class="text-body-2">
+
+          <v-divider></v-divider>
+
+          <v-card-actions class="pa-6 justify-center">
+            <span class="text-body-2 text-medium-emphasis">
               Don't have an account?
-              <router-link to="/register" class="text-primary">Register</router-link>
+              <router-link to="/register" class="text-primary text-decoration-none font-weight-medium">
+                Sign Up
+              </router-link>
             </span>
-            <v-spacer></v-spacer>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -76,14 +50,15 @@
 
 <script>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
 export default {
   name: 'Login',
   setup() {
     const router = useRouter()
-    const { login } = useAuth()
+    const route = useRoute()
+    const { login, isAdmin } = useAuth()
 
     const form = ref(null)
     const valid = ref(false)
@@ -105,7 +80,7 @@ export default {
 
     const handleLogin = async () => {
       error.value = null
-      
+
       const { valid: formValid } = await form.value.validate()
       if (!formValid) return
 
@@ -113,7 +88,12 @@ export default {
       try {
         const result = await login(email.value, password.value)
         if (result.success) {
-          router.push({ name: 'Home' })
+          const redirect = route.query.redirect
+          if (redirect) {
+            router.push(redirect)
+          } else {
+            router.push({ name: isAdmin.value ? 'AdminDashboard' : 'UserDashboard' })
+          }
         } else {
           if (Array.isArray(result.error)) {
             error.value = result.error.map(e => e.msg || e.message || e).join(', ')
@@ -149,5 +129,17 @@ export default {
 <style scoped>
 .fill-height {
   min-height: 100vh;
+}
+
+.bg-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.rounded-lg {
+  border-radius: 16px !important;
+}
+
+.bg-primary {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
 }
 </style>

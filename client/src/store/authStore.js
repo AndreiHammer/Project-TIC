@@ -2,13 +2,20 @@ import { createStore } from 'vuex'
 
 export default createStore({
   state: {
-    user: null,
+    user: JSON.parse(localStorage.getItem('user')) || null,
     token: localStorage.getItem('token') || null,
     isAuthenticated: !!localStorage.getItem('token'),
+    isAdmin: JSON.parse(localStorage.getItem('user'))?.admin || false,
   },
   mutations: {
     SET_USER(state, user) {
       state.user = user
+      state.isAdmin = user?.admin || false
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user))
+      } else {
+        localStorage.removeItem('user')
+      }
     },
     SET_TOKEN(state, token) {
       state.token = token
@@ -23,7 +30,9 @@ export default createStore({
       state.user = null
       state.token = null
       state.isAuthenticated = false
+      state.isAdmin = false
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
     },
   },
   actions: {
@@ -43,6 +52,6 @@ export default createStore({
     isAuthenticated: (state) => state.isAuthenticated,
     currentUser: (state) => state.user,
     token: (state) => state.token,
+    isAdmin: (state) => state.isAdmin,
   },
 })
-
