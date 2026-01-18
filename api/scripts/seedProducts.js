@@ -65,18 +65,18 @@ async function generateProducts(count = 50) {
             })),
 
             flags: {
-                active: faker.datatype.boolean({ probability: 0.9 }),
+                active: true,
                 featured: faker.datatype.boolean({ probability: 0.15 }),
                 onSale
             },
 
             rating: faker.datatype.boolean({ probability: 0.7 })
                 ? {
-                      avg: Number(
-                          faker.number.float({ min: 3, max: 5, fractionDigits: 1 }).toFixed(1)
-                      ),
-                      count: faker.number.int({ min: 1, max: 300 })
-                  }
+                    avg: Number(
+                        faker.number.float({ min: 3, max: 5, fractionDigits: 1 }).toFixed(1)
+                    ),
+                    count: faker.number.int({ min: 1, max: 300 })
+                }
                 : null,
 
             metadata: {

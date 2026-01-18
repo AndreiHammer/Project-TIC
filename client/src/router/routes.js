@@ -49,8 +49,17 @@ const routes = [
   {
     path: '/products',
     name: 'Products',
-    component: () => import('../views/User Dashboard.vue'), // Temporary
-    meta: { requiresAuth: true },
+    component: () => import('../views/Product List.vue'),
+    meta: {
+      requiresAuth: true,
+      keepAlive: true
+    },
+  },
+  {
+    path: '/products/:id',
+    name: 'ProductDetail',
+    component: () => import('../views/Product Detail.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/cart',
@@ -67,7 +76,7 @@ const routes = [
   {
     path: '/admin/products',
     name: 'AdminProducts',
-    component: () => import('../views/Admin Dashboard.vue'), // Temporary
+    component: () => import('../views/Product Management.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
@@ -86,6 +95,17 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+
+    if (to.name === 'Products' && from.name === 'ProductDetail') {
+      return savedPosition || { top: 0 }
+    }
+
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((to, from, next) => {

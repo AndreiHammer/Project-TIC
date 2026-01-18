@@ -31,7 +31,9 @@
                         <v-card color="primary" dark>
                             <v-card-text>
                                 <div class="text-h6">Total Products</div>
-                                <div class="text-h3 font-weight-bold">--</div>
+                                <div class="text-h3 font-weight-bold">
+                                    {{ loadingStats ? '...' : totalProducts }}
+                                </div>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -94,9 +96,11 @@
 </template>
 
 <script>
+import { ref, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useRouter } from 'vue-router'
 import ActionCard from '../components/ActionCard.vue'
+import productService from '../services/productService'
 
 export default {
     name: 'AdminDashboard',
@@ -107,6 +111,27 @@ export default {
         const { currentUser, logout } = useAuth()
         const router = useRouter()
 
+        const totalProducts = ref(0)
+        const loadingStats = ref(true)
+
+        const fetchStats = async () => {
+            loadingStats.value = true
+            try {
+                const result = await productService.getAllProducts({ offset: 0, limit: 1 })
+                if (result.success) {
+                    totalProducts.value = result.pagination.totalProducts
+                }
+            } catch (error) {
+                console.error('Error fetching stats:', error)
+            } finally {
+                loadingStats.value = false
+            }
+        }
+
+        onMounted(() => {
+            fetchStats()
+        })
+
         const goToProfile = () => {
             router.push({ name: 'UserProfile' })
         }
@@ -116,12 +141,13 @@ export default {
         }
 
         const navigateTo = (routeName) => {
-            console.log(`Navigate to: ${routeName}`)
-            // router.push({ name: routeName })
+            router.push({ name: routeName })
         }
 
         return {
             currentUser,
+            totalProducts,
+            loadingStats,
             goToProfile,
             handleLogout,
             navigateTo,
@@ -139,15 +165,5 @@ export default {
 .profile-chip:hover {
     transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.action-card {
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.action-card:hover:not([disabled]) {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
 }
 </style>

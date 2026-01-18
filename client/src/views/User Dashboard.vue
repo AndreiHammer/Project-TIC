@@ -82,8 +82,7 @@ export default {
         }
 
         const navigateTo = (routeName) => {
-            console.log(`Navigate to: ${routeName}`)
-            // router.push({ name: routeName })
+            router.push({ name: routeName })
         }
 
         return {

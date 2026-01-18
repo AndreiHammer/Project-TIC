@@ -3,9 +3,35 @@ const { getAllProductsFromDb, getProductByIdFromDb, createProductInDb, updatePro
 
 const getAllProducts = async (req, res) => {
     try {
-        const products = await getAllProductsFromDb();
-        res.status(200).json(products);
+        const offset = parseInt(req.query.offset) || 0;
+        const limit = parseInt(req.query.limit) || 12;
+        const minPrice = parseFloat(req.query.minPrice) || 0;
+        const maxPrice = parseFloat(req.query.maxPrice) || Infinity;
+        const search = req.query.search || null;
+        const sortBy = req.query.sortBy || 'createdAt';
+        const sortOrder = req.query.sortOrder || 'desc';
+
+        const filters = {
+            minPrice,
+            maxPrice,
+            search,
+            sortBy,
+            sortOrder
+        };
+
+        const result = await getAllProductsFromDb(offset, limit, filters);
+
+        res.status(200).json({
+            products: result.products,
+            pagination: {
+                offset: offset,
+                limit: limit,
+                totalProducts: result.totalProducts,
+                hasMore: offset + limit < result.totalProducts
+            }
+        });
     } catch (error) {
+        console.error('Error fetching products:', error);
         res.status(500).json({ error: 'Failed to fetch products' });
     }
 };
