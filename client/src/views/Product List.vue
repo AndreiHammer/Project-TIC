@@ -13,7 +13,7 @@
 
                 <v-row v-if="!loading && products.length > 0">
                     <v-col v-for="product in products" :key="product.id" cols="12" sm="6" md="4" lg="3">
-                        <ProductCard :product="product" @click="goToProduct" @add-to-cart="addToCart" />
+                        <ProductCard :product="product" @click="goToProduct" @add-to-cart="handleAddToCart" />
                     </v-col>
                 </v-row>
 
@@ -43,16 +43,21 @@
             <v-fab v-show="showBackToTop" icon="mdi-chevron-up" location="bottom end" color="primary" size="large" app
                 @click="scrollToTop" :style="{ marginBottom: '24px', marginRight: '24px' }"></v-fab>
         </v-main>
+
+        <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
+            {{ snackbar.message }}
+        </v-snackbar>
     </v-app>
 </template>
 
 <script>
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppNav from '../components/AppNav.vue'
 import ProductCard from '../components/ProductCard.vue'
 import ProductFilters from '../components/ProductFilters.vue'
 import { useProducts } from '../composables/useProducts'
+import { useCart } from '../composables/useCart'
+import { useNotification } from '../composables/useNotification'
 
 export default {
     name: 'ProductsList',
@@ -63,7 +68,7 @@ export default {
     },
     setup() {
         const router = useRouter()
-        const cartCount = ref(0)
+        const { snackbar, showSuccess, showError } = useNotification()
 
         const {
             products,
@@ -84,13 +89,20 @@ export default {
             enableAutoUpdate: true,
         })
 
+        const { cartCount, addToCart } = useCart()
+
         const goToProduct = (productId) => {
             saveScrollPosition()
             router.push({ name: 'ProductDetail', params: { id: productId } })
         }
 
-        const addToCart = () => {
-            cartCount.value++
+        const handleAddToCart = async (productId) => {
+            const result = await addToCart(productId, 1)
+            if (result.success) {
+                showSuccess(result.message || 'Added to cart!')
+            } else {
+                showError(result.error || 'Failed to add to cart')
+            }
         }
 
         return {
@@ -105,9 +117,10 @@ export default {
             updatePriceRange,
             applyFilters,
             goToProduct,
-            addToCart,
+            handleAddToCart,
             showBackToTop,
             scrollToTop,
+            snackbar,
         }
     },
 }

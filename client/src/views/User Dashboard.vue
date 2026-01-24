@@ -7,6 +7,13 @@
             </v-app-bar-title>
             <v-spacer></v-spacer>
 
+            <v-btn icon @click="navigateTo('Cart')" class="mr-2">
+                <v-badge v-if="cartCount > 0" :content="cartCount" color="error" overlap>
+                    <v-icon>mdi-cart</v-icon>
+                </v-badge>
+                <v-icon v-else>mdi-cart-outline</v-icon>
+            </v-btn>
+
             <v-chip color="white" variant="outlined" class="mr-4 profile-chip" @click="goToProfile">
                 <v-icon icon="mdi-account-circle" start></v-icon>
                 {{ currentUser?.username }}
@@ -42,9 +49,9 @@
 
                     <v-col cols="12" md="6" lg="4">
                         <ActionCard title="Shopping Cart" subtitle="Review your items"
-                            description="View items in your cart, update quantities, and proceed to checkout."
+                            :description="`You have ${cartCount} item${cartCount !== 1 ? 's' : ''} in your cart. View, update quantities, and proceed to checkout.`"
                             icon="mdi-cart" avatar-color="success" button-text="View Cart" button-color="success"
-                            @click="navigateTo('Cart')" />
+                            :badge="cartCount > 0 ? cartCount : null" @click="navigateTo('Cart')" />
                     </v-col>
 
                     <v-col cols="12" md="6" lg="4">
@@ -62,6 +69,7 @@
 <script>
 import { useAuth } from '../composables/useAuth'
 import { useRouter } from 'vue-router'
+import { useCart } from '../composables/useCart'
 import ActionCard from '../components/ActionCard.vue'
 
 export default {
@@ -72,6 +80,7 @@ export default {
     setup() {
         const { currentUser, logout } = useAuth()
         const router = useRouter()
+        const { cartCount } = useCart()
 
         const goToProfile = () => {
             router.push({ name: 'UserProfile' })
@@ -87,6 +96,7 @@ export default {
 
         return {
             currentUser,
+            cartCount,
             goToProfile,
             handleLogout,
             navigateTo,

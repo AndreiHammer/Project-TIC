@@ -64,7 +64,7 @@ const routes = [
   {
     path: '/cart',
     name: 'Cart',
-    component: () => import('../views/User Dashboard.vue'), // Temporary
+    component: () => import('../views/Cart.vue'),
     meta: { requiresAuth: true },
   },
   {

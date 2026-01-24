@@ -82,22 +82,21 @@
 
                             <div v-if="!isOutOfStock" class="mb-4">
                                 <label class="text-h6 mb-2 d-block">Quantity:</label>
-                                <v-btn-toggle v-model="quantity" mandatory color="primary" variant="outlined" divided>
-                                    <v-btn @click="decrementQuantity" :disabled="quantity <= 1">
-                                        <v-icon>mdi-minus</v-icon>
-                                    </v-btn>
-                                    <v-btn disabled class="px-8">
+                                <div class="d-flex align-center">
+                                    <v-btn icon="mdi-minus" variant="outlined" color="primary"
+                                        @click="decrementQuantity" :disabled="quantity <= 1"></v-btn>
+                                    <div class="px-6 text-h5 font-weight-bold"
+                                        style="min-width: 60px; text-align: center;">
                                         {{ quantity }}
-                                    </v-btn>
-                                    <v-btn @click="incrementQuantity" :disabled="quantity >= availableStock">
-                                        <v-icon>mdi-plus</v-icon>
-                                    </v-btn>
-                                </v-btn-toggle>
+                                    </div>
+                                    <v-btn icon="mdi-plus" variant="outlined" color="primary" @click="incrementQuantity"
+                                        :disabled="quantity >= availableStock"></v-btn>
+                                </div>
                             </div>
-                            <v-btn color="primary" size="x-large" block :disabled="isOutOfStock" @click="addToCart"
-                                class="mb-4">
-                                <v-icon icon="mdi-cart-plus" start></v-icon>
-                                {{ isOutOfStock ? 'Out of Stock' : 'Add to Cart' }}
+                            <v-btn color="primary" size="x-large" block :disabled="isOutOfStock || addingToCart"
+                                :loading="addingToCart" @click="handleAddToCart" class="mb-4">
+                                <v-icon :icon="buttonIcon" start></v-icon>
+                                {{ buttonText }}
                             </v-btn>
 
                             <v-divider class="my-4"></v-divider>
@@ -167,15 +166,21 @@
                 </v-row>
             </v-container>
         </v-main>
+
+        <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
+            {{ snackbar.message }}
+        </v-snackbar>
     </v-app>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from '../components/AppNav.vue'
 import productService from '../services/productService'
 import { useProductStock } from '../composables/useProductStock'
+import { useCart } from '../composables/useCart'
+import { useNotification } from '../composables/useNotification'
 
 export default {
     name: 'ProductDetail',
@@ -184,15 +189,35 @@ export default {
     },
     setup() {
         const route = useRoute()
+        const { snackbar, showSuccess, showError } = useNotification()
 
         const product = ref(null)
         const loading = ref(true)
         const error = ref(null)
         const selectedImage = ref('')
         const quantity = ref(1)
-        const cartCount = ref(0)
+        const addingToCart = ref(false)
 
+        const { cartCount, cartItems, addToCart, updateCartItem } = useCart()
         const { isOutOfStock, availableStock, stockColor: getStockColor, stockIcon: getStockIcon, stockTextLong: getStockText } = useProductStock(product)
+
+        const cartItem = computed(() => {
+            if (!product.value || !cartItems.value) return null
+            return cartItems.value.find(item => item.productId === product.value.id)
+        })
+
+        const isInCart = computed(() => !!cartItem.value)
+
+        const buttonText = computed(() => {
+            if (isOutOfStock.value) return 'Out of Stock'
+            if (isInCart.value) return 'Update Cart'
+            return 'Add to Cart'
+        })
+
+        const buttonIcon = computed(() => {
+            if (isInCart.value) return 'mdi-cart-check'
+            return 'mdi-cart-plus'
+        })
 
         const fetchProduct = async () => {
             loading.value = true
@@ -216,6 +241,14 @@ export default {
             }
         }
 
+        watch(cartItem, (newCartItem) => {
+            if (newCartItem) {
+                quantity.value = newCartItem.quantity
+            } else {
+                quantity.value = 1
+            }
+        }, { immediate: true })
+
         onMounted(() => {
             fetchProduct()
         })
@@ -232,8 +265,27 @@ export default {
             }
         }
 
-        const addToCart = () => {
-            cartCount.value += quantity.value
+        const handleAddToCart = async () => {
+            addingToCart.value = true
+
+            let result
+            if (isInCart.value) {
+                result = await updateCartItem(product.value.id, quantity.value)
+                if (result.success) {
+                    showSuccess(`Cart updated to ${quantity.value} item(s)!`)
+                } else {
+                    showError(result.error || 'Failed to update cart')
+                }
+            } else {
+                result = await addToCart(product.value.id, quantity.value)
+                if (result.success) {
+                    showSuccess(`Added ${quantity.value} item(s) to cart!`)
+                } else {
+                    showError(result.error || 'Failed to add to cart')
+                }
+            }
+
+            addingToCart.value = false
         }
 
         return {
@@ -248,9 +300,14 @@ export default {
             getStockColor,
             getStockIcon,
             getStockText,
+            addingToCart,
+            isInCart,
+            buttonText,
+            buttonIcon,
             incrementQuantity,
             decrementQuantity,
-            addToCart,
+            handleAddToCart,
+            snackbar,
         }
     },
 }
