@@ -96,7 +96,8 @@ export default {
             router.push({ name: 'ProductDetail', params: { id: productId } })
         }
 
-        const handleAddToCart = async (productId) => {
+        const handleAddToCart = async (product) => {
+            const productId = typeof product === 'string' ? product : product.id
             const result = await addToCart(productId, 1)
             if (result.success) {
                 showSuccess(result.message || 'Added to cart!')
