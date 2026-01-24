@@ -70,10 +70,6 @@
                 </v-row>
 
                 <v-row justify="center">
-                    <v-col cols="12">
-                        <h2 class="text-h4 font-weight-bold mb-4">Admin Actions</h2>
-                    </v-col>
-
                     <v-col cols="12" md="6" lg="4">
                         <ActionCard title="Product Management" icon="mdi-package-variant" avatar-color="primary"
                             avatar-size="56" icon-size="32" button-text="Manage Products" button-color="primary"

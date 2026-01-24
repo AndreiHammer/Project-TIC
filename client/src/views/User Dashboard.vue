@@ -36,9 +36,6 @@
                 </v-row>
 
                 <v-row>
-                    <v-col cols="12">
-                        <h2 class="text-h4 font-weight-bold mb-4">Quick Actions</h2>
-                    </v-col>
 
                     <v-col cols="12" md="6" lg="4">
                         <ActionCard title="Browse Products" subtitle="Explore our catalog"
