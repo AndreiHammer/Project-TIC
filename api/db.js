@@ -1,9 +1,9 @@
 const admin = require('firebase-admin');
 
 function initializeFirestore() {
-    admin.initializeApp({
-        credential: admin.credential.cert(require('./firebaseCredential.json'))
-    });
+    if (admin.apps.length === 0) {
+        admin.initializeApp(); 
+    }
 
     return admin.firestore();
 }
