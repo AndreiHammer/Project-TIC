@@ -23,18 +23,18 @@ const getOrdersByUserIdFromDb = async (userId) => {
     const snapshot = await ordersCollection
         .where('userId', '==', userId)
         .get();
-    
+
     const orders = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
     }));
-    
+
     orders.sort((a, b) => {
         const dateA = a.metadata?.createdAt || '';
         const dateB = b.metadata?.createdAt || '';
         return dateB.localeCompare(dateA);
     });
-    
+
     return orders;
 };
 
@@ -43,89 +43,54 @@ const getAllOrdersFromDb = async (limit = 50) => {
         .orderBy('metadata.createdAt', 'desc')
         .limit(limit)
         .get();
-    
+
     const orders = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
     }));
-    
+
     return orders;
 };
 
-const updateOrderStatusInDb = async (orderId, status, updatedBy = null) => {
+const updateOrderStatusInDb = async (orderId, status, updatedBy = null, paymentStatus = null) => {
     const orderRef = ordersCollection.doc(orderId);
     const orderDoc = await orderRef.get();
-    
+
     if (!orderDoc.exists) {
         throw new Error('Order not found');
     }
-    
+
     const updateData = {
         status,
         'metadata.updatedAt': new Date().toISOString()
     };
-    
+
     if (updatedBy) {
         updateData['metadata.updatedBy'] = updatedBy;
     }
-    
-    await orderRef.update(updateData);
-    
-    return {
-        id: orderDoc.id,
-        ...orderDoc.data(),
-        ...updateData
-    };
-};
 
-const cancelOrderInDb = async (orderId, userId) => {
-    const orderRef = ordersCollection.doc(orderId);
-    const orderDoc = await orderRef.get();
-    
-    if (!orderDoc.exists) {
-        throw new Error('Order not found');
+    if (paymentStatus) {
+        updateData['payment.status'] = paymentStatus;
     }
-    
-    const order = orderDoc.data();
-    
-    if (order.userId !== userId) {
-        throw new Error('Unauthorized to cancel this order');
-    }
-    
-    if (!['pending', 'confirmed'].includes(order.status)) {
-        throw new Error(`Cannot cancel order with status: ${order.status}`);
-    }
-    
-    const stockRestorePromises = order.items.map(item => {
-        return updateProductStockForOrder(item.productId, 0, -item.quantity);
-    });
-    
-    await Promise.all(stockRestorePromises);
-    
-    const updateData = {
-        status: 'cancelled',
-        'metadata.updatedAt': new Date().toISOString(),
-        'metadata.cancelledAt': new Date().toISOString(),
-        'metadata.cancelledBy': userId
-    };
-    
+
     await orderRef.update(updateData);
-    
-    const updatedOrderDoc = await orderRef.get();
-    
+
+    const updatedDoc = await orderRef.get();
+
     return {
-        id: updatedOrderDoc.id,
-        ...updatedOrderDoc.data()
+        id: updatedDoc.id,
+        ...updatedDoc.data()
     };
 };
 
 const validateAndReserveStock = async (items) => {
     const validationErrors = [];
     const productUpdates = [];
-    
+    const productData = [];
+
     for (const item of items) {
         const productDoc = await productsCollection.doc(item.productId).get();
-        
+
         if (!productDoc.exists) {
             validationErrors.push({
                 productId: item.productId,
@@ -133,10 +98,10 @@ const validateAndReserveStock = async (items) => {
             });
             continue;
         }
-        
+
         const product = productDoc.data();
         const availableStock = (product.stock?.quantity || 0) - (product.stock?.reserved || 0);
-        
+
         if (availableStock < item.quantity) {
             validationErrors.push({
                 productId: item.productId,
@@ -147,7 +112,7 @@ const validateAndReserveStock = async (items) => {
             });
             continue;
         }
-        
+
         if (!product.flags?.active) {
             validationErrors.push({
                 productId: item.productId,
@@ -156,54 +121,59 @@ const validateAndReserveStock = async (items) => {
             });
             continue;
         }
-        
+
         productUpdates.push({
             productId: item.productId,
             quantity: item.quantity
         });
+
+        productData.push({
+            id: productDoc.id,
+            ...product
+        });
     }
-    
+
     if (validationErrors.length > 0) {
         throw {
             name: 'StockValidationError',
             errors: validationErrors
         };
     }
-    
+
     const stockUpdatePromises = productUpdates.map(update => {
         return updateProductStockForOrder(update.productId, 0, update.quantity);
     });
-    
+
     await Promise.all(stockUpdatePromises);
-    
-    return true;
+
+    return productData;
 };
 
 const finalizeStockForOrder = async (items) => {
     const stockUpdatePromises = items.map(item => {
         return updateProductStockForOrder(item.productId, -item.quantity, -item.quantity);
     });
-    
+
     await Promise.all(stockUpdatePromises);
 };
 
 const updateProductStockForOrder = async (productId, quantityChange, reservedChange) => {
     const productRef = productsCollection.doc(productId);
     const productDoc = await productRef.get();
-    
+
     if (!productDoc.exists) {
         throw new Error(`Product ${productId} not found`);
     }
-    
+
     const currentProduct = productDoc.data();
     const currentQuantity = currentProduct.stock?.quantity || 0;
     const currentReserved = currentProduct.stock?.reserved || 0;
-    
+
     const newQuantity = Math.max(0, currentQuantity + quantityChange);
     const newReserved = Math.max(0, currentReserved + reservedChange);
-    
+
     const finalReserved = Math.min(newReserved, newQuantity);
-    
+
     await productRef.update({
         'stock.quantity': newQuantity,
         'stock.reserved': finalReserved,
@@ -217,8 +187,7 @@ module.exports = {
     getOrdersByUserIdFromDb,
     getAllOrdersFromDb,
     updateOrderStatusInDb,
-    cancelOrderInDb,
     validateAndReserveStock,
-    finalizeStockForOrder
+    finalizeStockForOrder,
+    updateProductStockForOrder
 };
-

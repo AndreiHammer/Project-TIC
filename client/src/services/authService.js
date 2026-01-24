@@ -60,6 +60,20 @@ export const authService = {
       }
     }
   },
+  async getUsersCount() {
+    try {
+      const response = await api.get('/users/count')
+      return {
+        success: true,
+        data: response.data.count,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch users count',
+      }
+    }
+  }
 }
 
 export default authService

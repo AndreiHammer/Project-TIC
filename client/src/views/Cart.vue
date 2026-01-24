@@ -215,7 +215,7 @@ export default {
             clearCart,
         } = useCart()
 
-        const { snackbar, showSuccess, showError, showInfo } = useNotification()
+        const { snackbar, showSuccess, showError } = useNotification()
 
         const removeDialog = ref(false)
         const clearDialog = ref(false)
@@ -297,7 +297,7 @@ export default {
         }
 
         const proceedToCheckout = () => {
-            showInfo('Checkout functionality coming soon!')
+            router.push({ name: 'Checkout' })
         }
 
         return {

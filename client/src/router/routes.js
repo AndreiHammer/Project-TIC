@@ -68,9 +68,15 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/checkout',
+    name: 'Checkout',
+    component: () => import('../views/Checkout.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/orders',
     name: 'Orders',
-    component: () => import('../views/User Dashboard.vue'), // Temporary
+    component: () => import('../views/User Orders.vue'),
     meta: { requiresAuth: true },
   },
   {
@@ -82,7 +88,7 @@ const routes = [
   {
     path: '/admin/orders',
     name: 'AdminOrders',
-    component: () => import('../views/Admin Dashboard.vue'), // Temporary
+    component: () => import('../views/Admin Orders.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {

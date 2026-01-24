@@ -41,7 +41,9 @@
                         <v-card color="success" dark>
                             <v-card-text>
                                 <div class="text-h6">Total Orders</div>
-                                <div class="text-h3 font-weight-bold">--</div>
+                                <div class="text-h3 font-weight-bold">
+                                    {{ loadingStats ? '...' : totalOrders }}
+                                </div>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -49,7 +51,9 @@
                         <v-card color="warning" dark>
                             <v-card-text>
                                 <div class="text-h6">Pending Orders</div>
-                                <div class="text-h3 font-weight-bold">--</div>
+                                <div class="text-h3 font-weight-bold">
+                                    {{ loadingStats ? '...' : pendingOrders }}
+                                </div>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -57,7 +61,9 @@
                         <v-card color="info" dark>
                             <v-card-text>
                                 <div class="text-h6">Total Users</div>
-                                <div class="text-h3 font-weight-bold">--</div>
+                                <div class="text-h3 font-weight-bold">
+                                    {{ loadingStats ? '...' : totalUsers }}
+                                </div>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -101,6 +107,8 @@ import { useAuth } from '../composables/useAuth'
 import { useRouter } from 'vue-router'
 import ActionCard from '../components/ActionCard.vue'
 import productService from '../services/productService'
+import orderService from '../services/orderService'
+import userService from '../services/authService'
 
 export default {
     name: 'AdminDashboard',
@@ -113,6 +121,21 @@ export default {
 
         const totalProducts = ref(0)
         const loadingStats = ref(true)
+        const totalOrders = ref(0)
+        const pendingOrders = ref(0)
+        const totalUsers = ref(0)
+
+        const fetchOrderStats = async () => {
+            try {
+                const result = await orderService.getOrders()
+                if (result.success) {
+                    totalOrders.value = result.data.length
+                    pendingOrders.value = result.data.filter(o => o.status === 'pending').length
+                }
+            } catch (error) {
+                console.error('Error fetching order stats:', error)
+            }
+        }
 
         const fetchStats = async () => {
             loadingStats.value = true
@@ -128,8 +151,21 @@ export default {
             }
         }
 
+        const fetchUserStats = async () => {
+            try {
+                const result = await userService.getUsersCount()
+                if (result.success) {
+                    totalUsers.value = result.data
+                }
+            } catch (error) {
+                console.error('Error fetching user stats:', error)
+            }
+        }
+
         onMounted(() => {
             fetchStats()
+            fetchOrderStats()
+            fetchUserStats()
         })
 
         const goToProfile = () => {
@@ -147,7 +183,10 @@ export default {
         return {
             currentUser,
             totalProducts,
+            totalOrders,
+            pendingOrders,
             loadingStats,
+            totalUsers,
             goToProfile,
             handleLogout,
             navigateTo,

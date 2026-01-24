@@ -1,5 +1,5 @@
 const { validationResult } = require('express-validator');
-const { findUserByEmail, findUserByUsername, addNewUser, verifyPassword, updateLastLogin, findUserById } = require('../models/User');
+const { findUserByEmail, findUserByUsername, addNewUser, verifyPassword, updateLastLogin, findUserById, getUsersCountFromDb } = require('../models/User');
 const { hashPassword, generateToken } = require('../utils/jwtUtils');
 
 const sanitizeValidationErrors = (errors) => {
@@ -17,7 +17,7 @@ const login = async (req, res) => {
     const validationErrors = validationResult(req);
     if (!validationErrors.isEmpty()) {
         return res.status(400).json({
-            error : sanitizeValidationErrors(validationErrors.array())
+            error: sanitizeValidationErrors(validationErrors.array())
         })
     }
     try {
@@ -31,14 +31,14 @@ const login = async (req, res) => {
 
         const user = await findUserByEmail(email);
 
-        if(!user) {
-            return res.status(401).json({error : 'Invalid Login'});
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid Login' });
         }
 
         const isValidPassword = await verifyPassword(password, user.password);
 
-        if(!isValidPassword) {
-            return res.status(401).json({error : 'Invalid Login'});
+        if (!isValidPassword) {
+            return res.status(401).json({ error: 'Invalid Login' });
         }
 
         await updateLastLogin(user.id);
@@ -46,7 +46,7 @@ const login = async (req, res) => {
         const token = generateToken({
             id: user.id,
             email: user.email,
-            username: user.username  
+            username: user.username
         });
 
         res.status(200).json({
@@ -59,7 +59,7 @@ const login = async (req, res) => {
                 admin: user.admin
             }
         });
-    } catch(error) {
+    } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Authentication failed' });
     }
@@ -69,13 +69,13 @@ const register = async (req, res) => {
     const validationErrors = validationResult(req);
     if (!validationErrors.isEmpty()) {
         return res.status(400).json({
-            error : sanitizeValidationErrors(validationErrors.array())
+            error: sanitizeValidationErrors(validationErrors.array())
         })
     }
     try {
         const { email, password, username, confirmPassword } = req.body;
-        
-        const existingUserByEmail = await findUserByEmail(email); 
+
+        const existingUserByEmail = await findUserByEmail(email);
         if (existingUserByEmail) {
             return res.status(409).json({
                 error: 'User with this email already exists'
@@ -96,44 +96,44 @@ const register = async (req, res) => {
         }
 
         const hashedPassword = await hashPassword(password);
-        
+
         const newUser = {
             email,
-            username,  
+            username,
             password: hashedPassword,
             admin: false,
-            profile: {  
-                displayName: username,  
+            profile: {
+                displayName: username,
                 createdAt: new Date().toISOString()
             },
-            metadata: {  
+            metadata: {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 lastLogin: null
             }
         };
 
-        const docRef = await addNewUser(newUser);  
+        const docRef = await addNewUser(newUser);
 
         await updateLastLogin(docRef.id);
 
         const token = generateToken({
             id: docRef.id,
             email: email,
-            username: username 
-        }); 
-        
+            username: username
+        });
+
         res.status(201).json({
             message: 'User registered successfully',
             token,
             user: {
-                id: docRef.id, 
+                id: docRef.id,
                 email: email,
                 username: username,
-                admin: false  
+                admin: false
             }
         });
-    } catch(error) {
+    } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Registration failed' });
     }
@@ -191,7 +191,7 @@ const registerAdmin = async (req, res) => {
             email,
             username,
             password: hashedPassword,
-            admin: true, 
+            admin: true,
             profile: {
                 displayName: username,
                 createdAt: new Date().toISOString()
@@ -230,8 +230,19 @@ const registerAdmin = async (req, res) => {
     }
 };
 
+const getUsersCount = async (req, res) => {
+    try {
+        const count = await getUsersCountFromDb();
+        res.status(200).json({ count });
+    } catch (error) {
+        console.error('Get users count error:', error);
+        res.status(500).json({ error: 'Failed to fetch users count' });
+    }
+};
+
 module.exports = {
     login,
     register,
-    registerAdmin
+    registerAdmin,
+    getUsersCount
 };

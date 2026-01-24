@@ -10,7 +10,7 @@ const findUserByEmail = async (email) => {
     }
     const userDoc = snapshot.docs[0];
     const user = {
-        id: userDoc.id, 
+        id: userDoc.id,
         ...userDoc.data()
     };
 
@@ -24,7 +24,7 @@ const findUserByUsername = async (username) => {
     }
     const userDoc = snapshot.docs[0];
     const user = {
-        id: userDoc.id, 
+        id: userDoc.id,
         ...userDoc.data()
     };
     return user;
@@ -60,11 +60,17 @@ const findUserById = async (userId) => {
     };
 };
 
+const getUsersCountFromDb = async () => {
+    const snapshot = await usersCollection.where("admin", "==", false).get();
+    return snapshot.size;
+};
+
 module.exports = {
     findUserByEmail,
     findUserByUsername,
     verifyPassword,
     addNewUser,
     updateLastLogin,
-    findUserById
+    findUserById,
+    getUsersCountFromDb
 };

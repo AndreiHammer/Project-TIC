@@ -5,13 +5,27 @@ const {
     getOrdersByUserIdFromDb,
     getAllOrdersFromDb,
     updateOrderStatusInDb,
-    cancelOrderInDb,
     validateAndReserveStock,
-    finalizeStockForOrder
+    finalizeStockForOrder,
+    updateProductStockForOrder
 } = require('../models/Order');
 const { getProductByIdFromDb } = require('../models/Product');
 const { getCartByUserId, clearCart } = require('../models/Cart');
 const { findUserById } = require('../models/User');
+
+const validateStatusTransition = (currentStatus, newStatus) => {
+    const validTransitions = {
+        'pending': ['confirmed', 'cancelled'],
+        'confirmed': ['processing', 'cancelled'],
+        'processing': ['shipped', 'cancelled'],
+        'shipped': ['delivered', 'cancelled'],
+        'delivered': [],
+        'cancelled': []
+    };
+
+    const allowedTransitions = validTransitions[currentStatus] || [];
+    return allowedTransitions.includes(newStatus);
+};
 
 const createOrder = async (req, res) => {
     const validationErrors = validationResult(req);
@@ -23,8 +37,15 @@ const createOrder = async (req, res) => {
         const userId = req.user.id;
         const { items, shipping, payment } = req.body;
 
+        if (!items || items.length === 0) {
+            return res.status(400).json({
+                error: 'Order must contain at least one item'
+            });
+        }
+
+        let products;
         try {
-            await validateAndReserveStock(items);
+            products = await validateAndReserveStock(items);
         } catch (error) {
             if (error.name === 'StockValidationError') {
                 return res.status(400).json({
@@ -36,11 +57,12 @@ const createOrder = async (req, res) => {
         }
 
         let total = 0;
+        let currency = 'EUR';
         const orderItems = [];
 
         for (const item of items) {
-            const product = await getProductByIdFromDb(item.productId);
-            
+            const product = products.find(p => p.id === item.productId);
+
             if (!product) {
                 return res.status(400).json({
                     error: `Product ${item.productId} not found`
@@ -50,6 +72,10 @@ const createOrder = async (req, res) => {
             const price = product.price?.value || 0;
             const subtotal = price * item.quantity;
             total += subtotal;
+
+            if (orderItems.length === 0) {
+                currency = product.price?.currency || 'EUR';
+            }
 
             orderItems.push({
                 productId: product.id,
@@ -68,6 +94,7 @@ const createOrder = async (req, res) => {
             userId,
             items: orderItems,
             total: parseFloat(total.toFixed(2)),
+            currency,
             shipping: {
                 name: shipping.name,
                 address: shipping.address,
@@ -112,7 +139,7 @@ const createOrder = async (req, res) => {
 const getOrders = async (req, res) => {
     try {
         const userId = req.user.id;
-        
+
         const user = await findUserById(userId);
         const isAdmin = user?.admin || false;
 
@@ -134,7 +161,7 @@ const getOrderById = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
-        
+
         const user = await findUserById(userId);
         const isAdmin = user?.admin || false;
 
@@ -172,12 +199,60 @@ const updateOrderStatus = async (req, res) => {
             return res.status(404).json({ error: 'Order not found' });
         }
 
-        if (['processing', 'shipped', 'delivered'].includes(status) && 
+        if (order.status === 'delivered') {
+            return res.status(400).json({
+                error: 'Cannot update status of delivered orders'
+            });
+        }
+
+        if (order.status === 'cancelled') {
+            return res.status(400).json({
+                error: 'Cannot update status of cancelled orders'
+            });
+        }
+
+        if (!validateStatusTransition(order.status, status)) {
+            return res.status(400).json({
+                error: `Invalid status transition from ${order.status} to ${status}`
+            });
+        }
+
+        if (status === 'cancelled') {
+            try {
+                if (['processing', 'shipped'].includes(order.status)) {
+                    const stockRestorePromises = order.items.map(item => {
+                        return updateProductStockForOrder(item.productId, item.quantity, 0);
+                    });
+                    await Promise.all(stockRestorePromises);
+                } else if (['pending', 'confirmed'].includes(order.status)) {
+                    const stockRestorePromises = order.items.map(item => {
+                        return updateProductStockForOrder(item.productId, 0, -item.quantity);
+                    });
+                    await Promise.all(stockRestorePromises);
+                }
+            } catch (stockError) {
+                console.error('Failed to restore stock during status update to cancelled:', stockError);
+                return res.status(500).json({
+                    error: 'Failed to restore stock. Status update aborted.'
+                });
+            }
+        }
+
+        if (['processing', 'shipped', 'delivered'].includes(status) &&
             ['pending', 'confirmed'].includes(order.status)) {
             await finalizeStockForOrder(order.items);
         }
 
-        const updatedOrder = await updateOrderStatusInDb(id, status, updatedBy);
+        let paymentStatus = order.payment?.status || 'pending';
+        if (status === 'delivered') {
+            paymentStatus = 'completed';
+        } else if (status === 'cancelled') {
+            paymentStatus = 'failed';
+        } else if (['processing', 'shipped'].includes(status)) {
+            paymentStatus = 'completed';
+        }
+
+        const updatedOrder = await updateOrderStatusInDb(id, status, updatedBy, paymentStatus);
 
         res.status(200).json({
             message: 'Order status updated successfully',
@@ -197,7 +272,59 @@ const cancelOrder = async (req, res) => {
         const userId = req.user.id;
         const { id } = req.params;
 
-        const cancelledOrder = await cancelOrderInDb(id, userId);
+        const order = await getOrderByIdFromDb(id);
+
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        const user = await findUserById(userId);
+        const isAdmin = user?.admin || false;
+
+        if (!isAdmin && order.userId !== userId) {
+            return res.status(403).json({ error: 'Unauthorized to cancel this order' });
+        }
+
+        if (order.status === 'delivered') {
+            return res.status(400).json({
+                error: 'Cannot cancel delivered orders'
+            });
+        }
+
+        if (order.status === 'cancelled') {
+            return res.status(400).json({
+                error: 'Order is already cancelled'
+            });
+        }
+
+        if (!isAdmin && !['pending', 'confirmed'].includes(order.status)) {
+            return res.status(400).json({
+                error: `Cannot cancel order with status: ${order.status}. Only pending and confirmed orders can be cancelled.`
+            });
+        }
+
+        try {
+            if (['processing', 'shipped'].includes(order.status)) {
+                const stockRestorePromises = order.items.map(item => {
+                    return updateProductStockForOrder(item.productId, item.quantity, 0);
+                });
+                await Promise.all(stockRestorePromises);
+            } else if (['pending', 'confirmed'].includes(order.status)) {
+                const stockRestorePromises = order.items.map(item => {
+                    return updateProductStockForOrder(item.productId, 0, -item.quantity);
+                });
+                await Promise.all(stockRestorePromises);
+            }
+        } catch (stockError) {
+            console.error('Failed to restore stock during cancellation:', stockError);
+            return res.status(500).json({
+                error: 'Failed to restore stock. Order cancellation aborted.'
+            });
+        }
+
+        await updateOrderStatusInDb(id, 'cancelled', userId, 'failed');
+
+        const cancelledOrder = await getOrderByIdFromDb(id);
 
         res.status(200).json({
             message: 'Order cancelled successfully',
@@ -207,12 +334,6 @@ const cancelOrder = async (req, res) => {
         console.error('Cancel order error:', error);
         if (error.message === 'Order not found') {
             return res.status(404).json({ error: error.message });
-        }
-        if (error.message === 'Unauthorized to cancel this order') {
-            return res.status(403).json({ error: error.message });
-        }
-        if (error.message.includes('Cannot cancel order')) {
-            return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: 'Failed to cancel order' });
     }
@@ -225,4 +346,3 @@ module.exports = {
     updateOrderStatus,
     cancelOrder
 };
-

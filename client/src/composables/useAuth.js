@@ -47,7 +47,6 @@ export function useAuth() {
 
   const logout = () => {
     store.dispatch('logout')
-    sessionStorage.clear()  
     window.location.href = '/login'
     router.push({ name: 'Login' })
   }
