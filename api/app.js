@@ -82,9 +82,11 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 
+// Serve Vue frontend static files
 const frontendPath = path.join(__dirname, 'public');
 app.use(express.static(frontendPath));
-\
+
+// SPA fallback - serve index.html for all non-API routes
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(frontendPath, 'index.html'));
